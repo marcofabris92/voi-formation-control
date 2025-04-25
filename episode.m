@@ -3,6 +3,7 @@ function [p_ideal, p_actual, sched] = episode(p0, dijs, T, dt, pCdes, K_tr, K_fo
 n = size(dijs,1); % number of agents
 d = size(pCdes,2); % dimension of the ambient space
 dn = d*n;
+D = sum((dijs ~= 0),2);
 
 % Centrality metrics
 G = graph(dijs);
@@ -47,6 +48,15 @@ for k = 1 : K
             end 
         end 
     end 
+    for i = 1:n 
+        avg_i = sum(reshape(p0estimator(:,i),d,n),2)/(1+D(i));
+        for j = 1:n 
+            if dijs(i,j) == 0 && i ~= j 
+                jj = 1+d*(j-1) : d*j; 
+                p0estimator(jj,i) = avg_i; 
+            end 
+        end 
+    end 
     p0estimator = reshape(p0estimator,n*dn,1); 
     [~,p_next] = ode45(@(t,p)dyn(t,p,par),T0,[p0; p0estimator]); 
     p_next = p_next(:,1:dn); 
@@ -62,7 +72,6 @@ for k = 1 : K
         end
     end
     % Communication
-    tx = 0;
     switch tx_algo
         case 0 % Round robin scheduling
             [~, tx] = max(age);
@@ -114,11 +123,13 @@ function pdot = dyn(t,p,par)
     end 
 
     pC = zeros(d,n); 
-    for i = 1:n
+    parfor i = 1:n
         pC(:,i) = sum(reshape(pe(:,i),d,n),2); 
     end
     pC = pC/n;
+
     pCdes = par.next_pCdes(1+floor(t/par.dt),:)';
+    
     pdot = zeros(d,n);
     for i = 1:n
        pi = p(:,i);
