@@ -121,10 +121,10 @@ function pdot = dyn(t,p,par)
     pedot = zeros(dn,n); 
     for i = 1:n 
         ii = 1+d*(i-1) : d*i;
-        pedot(ii,i) = -par.K_est*(pe(ii,i)-p(:,i)); 
+        pedot(ii,i) = -par.K_est*par.WA(i,i)*(pe(ii,i)-p(:,i)); 
         for j = 1:n 
             if par.dijs(i,j) > 0 
-                pedot(:,i) = pedot(:,i) - par.K_est*(pe(:,i)-pe(:,j)); 
+                pedot(:,i) = pedot(:,i) - par.K_est*par.WA(i,j)*(pe(:,i)-pe(:,j)); 
             end 
         end 
     end 

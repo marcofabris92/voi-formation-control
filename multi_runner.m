@@ -17,7 +17,7 @@ duration = 10;
 step = 0.01;
 tx_time = 10;
 sigma = 0.01;
-formation_shape = 1;
+formation_shape = 0;
 cube_side = 5;
 episodes = 100;
 
