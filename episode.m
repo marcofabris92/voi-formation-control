@@ -1,17 +1,24 @@
-function [p_ideal, p_actual, sched] = episode(p0, dijs, T, dt, pCdes, K_tr, K_fo, T_tx, sigma_drift, tx_algo)
+%% VoI-aware Scheduling Schemes for Multi-Agent Formation Control
+% Authors: Federico Chiariotti and Marco Fabris
+% Emails: federico.chiariotti.@unipd.it   marco.fabris.1@unipd.it
+% Department of Information Engineering, University of Padova
+
+% This function encodes a single episode of the Monte Carlo simulations.
+% Invoked by: multi_runner
+% Invokes: 
+% - dyn
+
+
+function [p_ideal, p_actual, sched] = episode(...
+    p0, dijs, T, dt, pCdes, K_tr, K_fo, T_tx, sigma_drift, tx_algo, C, D, WA)
 
 n = size(dijs,1); % number of agents
 d = size(pCdes,2); % dimension of the ambient space
 dn = d*n;
-D = sum((dijs ~= 0),2);
-
-% Centrality metrics
-G = graph(dijs);
-C = centrality(G, 'closeness', 'Cost', G.Edges.Weight);
-C = C / sum(C);
 
 
-%% embedding parameters for solving the ODE
+%% Embedding parameters for solving the ODE
+par.WA = WA;
 par.dijs = dijs;
 par.pCdes = pCdes;
 par.K_tr = K_tr;
@@ -136,11 +143,11 @@ function pdot = dyn(t,p,par)
        for j = 1:n
            if par.dijs(i,j) > 0
                 pj = p(:,j);
-                pdot(:,i) = pdot(:,i) + ...
+                pdot(:,i) = pdot(:,i) + par.WA(i,j) * ...
                     (norm(pi - pj, 2)^2 - par.dijs(i,j)^2) * (pj - pi);
            end
        end
-       pdot(:,i) = par.K_tr*(pCdes-pC(:,i)) + par.K_fo*pdot(:,i); 
+       pdot(:,i) = par.K_tr*par.WA(i,i)*(pCdes-pC(:,i)) + par.K_fo*pdot(:,i); 
     end
 
     

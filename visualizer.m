@@ -1,15 +1,18 @@
-% visualizer
+%% VoI-aware Scheduling Schemes for Multi-Agent Formation Control
+% Authors: Federico Chiariotti and Marco Fabris
+% Emails: federico.chiariotti.@unipd.it   marco.fabris.1@unipd.it
+% Department of Information Engineering, University of Padova
 
-clearvars
+% This script shows the results obtained through Monte Carlo simulations.
+% Invokes: 
+% - graphics_main
+
+clear all
 close all
 clc
 
 
-% save('results.mat', 'p_actual_matrix', 'p_ideal_matrix', 
-% 'scheduling_matrix', 'dijs', 'T_tx', 'duration', 'step', 'sigma', 
-% 'actual_formation_loss_matrix', 'ideal_formation_loss_matrix', 'formation_shape', 'cube_side', 'pCdes');
-
-results = 'results_shape1.mat'; % 0 or 1
+results = 'results_shape0.mat'; % 0 or 1
 
 
 load(results)
@@ -27,7 +30,7 @@ n = size(dijs,1);
 d = size(pCdes,2);
 
 
-%% means of loss values
+%% Plotting means of loss values
 tt = 0:step:duration;
 T = length(tt);
 mean_1a = mean(squeeze(actual_formation_loss_matrix(1,:,:)),1);
@@ -61,9 +64,7 @@ hold off
 
 
 
-%% Trajectories
-
-% parameters
+%% Plotting trajectories
 ftsz = 30;
 lw = 2;
 grp.XBdes = pCdes;
@@ -76,7 +77,7 @@ graphics_main(grp,n,d,ftsz,lw,dijs~=0);
 
 
 
-
+%% 3-D plot of the agents' trajectories
 function [] = graphics_main(grp,nAg,DIM,ftsz,lw,A)
 
 

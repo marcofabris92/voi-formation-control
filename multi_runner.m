@@ -1,34 +1,40 @@
+%% VoI-aware Scheduling Schemes for Multi-Agent Formation Control
+% Authors: Federico Chiariotti and Marco Fabris
+% Emails: federico.chiariotti.@unipd.it   marco.fabris.1@unipd.it
+% Department of Information Engineering, University of Padova
+
+% This is the main script. It is used to run the Monte Carlo simulations.
+% Invokes:
+% - episode.m
+% - instant_loss
 
 clear all
 close all
 clc
 
-%% MAIN PARAMETERS FOR SIMULATION
+%% Main parameters for the M.C. experiment
 duration = 10;
 step = 0.01;
 tx_time = 10;
 sigma = 0.01;
-formation_shape = 0;
+formation_shape = 1;
 cube_side = 5;
 episodes = 100;
 
 
-% APPLICATION: FORMATION TRACKING (for dummies)
+%% Application: first-order formation tracking
 % agent space: the 3D world
 % desired formation: a cube
 % centroid tracking: a tanh-like curve
 
-%% Desired distances
-% (we don't need to specify them all, a complete graph isn't necessary!)
-
+% Desired distances
 sq2 = sqrt(2);
 sq3 = sqrt(3);
 dfc = sq3/2; % distance from a vertex to the cube centroid
-dd = cube_side;
 
 if (formation_shape == 0)
     % Standard cube
-    % dijs = dd*[...
+    % dijs = cube_side*[...
     %     0 1 sq2 1 1 sq2 sq3 sq2;
     %     1 0 1 sq2 sq2 1 sq2 sq3;
     %     sq2 1 0 1 sq3 sq2 1 sq2;
@@ -38,7 +44,7 @@ if (formation_shape == 0)
     %     sq3 sq2 1 sq2 sq2 1 0 1;
     %     sq2 sq3 sq2 1 1 sq2 1 0];
     % Standard cube minus 8 diagonals
-    dijs = dd*[...
+    dijs = cube_side*[...
         0 1 0 1 1 sq2 0 sq2;
         1 0 1 sq2 0 1 0 sq3;
         0 1 0 1 sq3 sq2 1 0;
@@ -49,8 +55,9 @@ if (formation_shape == 0)
         sq2 sq3 0 1 1 0 1 0];
 end
 if (formation_shape == 1)
-    % % Asymmetrical cube with node 8 in the center
-    % dijs = dd*[0 1 sq2 1 1 sq2 sq3 dfc;
+    % % Asymmetric cube with node 8 in the center
+    % dijs = cube_side*[...
+    %     0 1 sq2 1 1 sq2 sq3 dfc;
     %     1 0 1 sq2 sq2 1 sq2 dfc;
     %     sq2 1 0 1 sq3 sq2 1 dfc;
     %     1 sq2 1 0 sq2 sq3 sq2 dfc;
@@ -58,8 +65,8 @@ if (formation_shape == 1)
     %     sq2 1 sq2 sq3 1 0 1 dfc;
     %     sq3 sq2 1 sq2 sq2 1 0 dfc;
     %     dfc dfc dfc dfc dfc dfc dfc 0];
-    % Asymmetrical cube with node 8 in the center minus 6 diagonals
-    dijs = dd*[...
+    % Asymmetric cube with node 8 in the center minus 6 diagonals
+    dijs = cube_side*[...
         0 1 0 1 1 sq2 0 dfc;
         1 0 1 sq2 0 1 sq2 dfc;
         0 1 0 1 sq3 0 1 dfc;
@@ -71,13 +78,28 @@ if (formation_shape == 1)
 end
 
 
-n = size(dijs,1); % number of agents
+%% Topological parameters
+D = sum((dijs ~= 0),2); % node degrees
+n = length(D); % number of agents
+
+% Centrality metrics
+G = graph(dijs); % undirected graph weighted by dijs
+C = centrality(G, 'closeness', 'Cost', G.Edges.Weight);
+C = C / sum(C);
+
+% weighted adjacency matrix 
+WA = zeros(n,n);
+for i = 1:n
+    for j = 1:n
+        WA(i,j) = sqrt(C(i)*C(j));
+    end
+end
 
 
 %% Path planning for the centroid trajectory
 T = duration; % max simulation time
 dt = step;
-d = 3; % dimension of the space
+d = 3; % dimension of the ambient space
 dn = d*n;
 p0 = 10*ones(dn,1)+0.1*randn(dn,1); % initial positions of the agents
 tspan = 0:dt:T;
@@ -87,8 +109,8 @@ for l = 1:LT
     t = tspan(l);
     pCdes(l,:) = [0 t 5-5*tanh(1*(t-T/2))];
 end
-K_tr = 1; % tracking gain
-K_fo = 5; % formation gain
+K_tr = 10; % tracking gain
+K_fo = 50; % formation gain
 
 %% Communication parameters
 T_tx = tx_time; % Number of steps between scheduled transmissions
@@ -107,17 +129,18 @@ parfor algo_TX = 0 : algo_MAX-1
     for ep = 1 : episodes
         fprintf(['algo_TX = ' num2str(algo_TX) ', ep = ' num2str(ep) '\n'])
         [p_ideal, p_actual, sched] = ...
-            episode(p0, dijs, T, dt, pCdes, K_tr, K_fo, T_tx, sigma_drift, algo_TX);
+            episode(p0, dijs, T, dt, pCdes, K_tr, K_fo, T_tx,...
+            sigma_drift, algo_TX, C, D, WA);
         
         form_loss_act = zeros(1, length(tspan));
         for i = 1 : length(tspan)
             form_loss_act(i) = ...
-                instant_loss(p_actual(i, :), pCdes(i, :), dijs, K_tr, K_fo);
+                instant_loss(p_actual(i, :), pCdes(i, :), dijs, K_tr, K_fo, WA);
         end
         form_loss_ide = zeros(1, length(tspan));
         for i = 1 : length(tspan)
             form_loss_ide(i) = ...
-                instant_loss(p_ideal(i, :), pCdes(i, :), dijs, K_tr, K_fo);
+                instant_loss(p_ideal(i, :), pCdes(i, :), dijs, K_tr, K_fo, WA);
         end
 
         p_actual_matrix(algo_TX + 1, ep, :, :) = p_actual;
@@ -132,3 +155,23 @@ end
 save('results.mat', 'p_actual_matrix', 'p_ideal_matrix', 'scheduling_matrix', 'dijs', 'T_tx', 'duration', 'step', 'sigma', 'actual_formation_loss_matrix', 'ideal_formation_loss_matrix', 'formation_shape', 'cube_side','pCdes');
 
 
+
+
+%% Loss computation
+function value = instant_loss(p, pCdes, dijs, K_tr, K_fo, WA)
+    d = length(pCdes);
+    n = size(dijs,1);
+    p = reshape(p,d,n);
+    value = 0;
+    loss_C = K_tr/2*norm(reshape(pCdes,d,1)-sum(p,2)/n)^2;
+    for i = 1:n
+        pi = p(:,i);
+        parfor j = 1:n
+            if dijs(i,j) > 0
+                value = value + ...
+                    K_fo/4*WA(i,j)*(norm(pi-p(:,j))^2 - dijs(i,j)^2)^2;
+            end
+        end
+        value = value + WA(i,i)*loss_C;
+    end
+end
