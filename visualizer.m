@@ -12,7 +12,7 @@ close all
 clc
 
 
-results = 'results_shape0.mat'; % 0 or 1
+results = 'results1.mat'; % 0 for symmetric cube or 1 for asymmetric cube
 
 
 load(results)
@@ -30,7 +30,7 @@ n = size(dijs,1);
 d = size(pCdes,2);
 
 
-%% Plotting means of loss values
+%% means of loss values
 tt = 0:step:duration;
 T = length(tt);
 mean_1a = mean(squeeze(actual_formation_loss_matrix(1,:,:)),1);
@@ -39,6 +39,8 @@ mean_2a = mean(squeeze(actual_formation_loss_matrix(2,:,:)),1);
 mean_2i = mean(squeeze(ideal_formation_loss_matrix(2,:,:)),1);
 mean_3a = mean(squeeze(actual_formation_loss_matrix(3,:,:)),1);
 mean_3i = mean(squeeze(ideal_formation_loss_matrix(3,:,:)),1);
+mean_4a = mean(squeeze(actual_formation_loss_matrix(4,:,:)),1);
+mean_4i = mean(squeeze(ideal_formation_loss_matrix(4,:,:)),1);
 
 figure('position',[100 100 1300 600])
 grid on
@@ -46,15 +48,20 @@ hold on
 m1i = plot(tt,mean_1i,'color',[255 128 0]/255,'LineWidth',1.5);
 m2i = plot(tt,mean_2i,'color',[0 204 0]/255,'LineWidth',1.5);
 m3i = plot(tt,mean_3i,'color',[153 153 255]/255,'LineWidth',1.5);
+m4i = plot(tt,mean_4i,'color',[1 1 1]/255,'LineWidth',1.5);
 m1a = plot(tt,mean_1a,'r','LineWidth',2);
 m2a = plot(tt,mean_2a,'color',[51 255 51]/255,'LineWidth',2);
 m3a = plot(tt,mean_3a,'b','LineWidth',2);
+m4a = plot(tt,mean_4a,'k','LineWidth',2);
 set(gca, 'YScale', 'log')
 set(gca,"TickLabelInterpreter",'latex','FontSize',20)
 xlabel('$t$','interpreter', 'latex','FontSize',20)
 ylabel('$\mathcal{L}(t)$','interpreter', 'latex','FontSize',20)
-legend([m1a m1i m2a m2i m3a m3i],...
-    {'actual1','ideal1','actual2','ideal2','actual3','ideal3'},...
+legend([m1a m1i m2a m2i m3a m3i m4a m4i],...
+    {'actual0','ideal0',... % Round robin scheduling
+    'actual1','ideal1',...  % Minimum weighted age scheduling
+    'actual2','ideal2',...  % Value-based scheduling
+    'actual3','ideal3'},... % Ideal scheduling (Oracle)
     'Interpreter','latex','FontSize',10)
 hold off
 
@@ -64,20 +71,28 @@ hold off
 
 
 
-%% Plotting trajectories
+% matlab2tikz('./loss_plot_sym.tex')
+
+
+
+
+%% Trajectories
+
+% parameters
 ftsz = 30;
 lw = 2;
 grp.XBdes = pCdes;
-grp.Xi = squeeze(p_ideal_matrix(1,1,:,:));     
+grp.Xi = squeeze(p_actual_matrix(1,1,:,:));     
 grp.kT = 3; % number of snapshots along the trajectory
 grp.T0 = 0:step:duration;
+grp.loss = actual_formation_loss_matrix;
 
 graphics_main(grp,n,d,ftsz,lw,dijs~=0);
 
 
 
 
-%% 3-D plot of the agents' trajectories
+
 function [] = graphics_main(grp,nAg,DIM,ftsz,lw,A)
 
 
@@ -128,10 +143,11 @@ for ii = 1:kTgif-1
 
 
         for k = 0:nAg-1
-            plot(Xi(:,DIM*k+1),Xi(:,DIM*k+2), 'color', color_traj, 'linewidth', 2)
+            plot(Xi(:,DIM*k+1),Xi(:,DIM*k+2), 'color', color_traj,...
+                'linewidth', 2)
             for kt = 1:kT
                 if kt == 1
-                    tt = 1; %1+floor(ii/kTgif*Ltraj);
+                    tt = 1; 
                 else
                     tt = round((kt-1)/(kT-1)*Ltraj);
                 end
@@ -142,7 +158,8 @@ for ii = 1:kTgif-1
                 if kt == 1 || kt == kT
                     txt = strcat('$',num2str(k+1),'$');
                 end
-                text(Xi(tt,DIM*k+1),Xi(tt,DIM*k+2),txt,'HorizontalAlignment',...
+                text(Xi(tt,DIM*k+1),Xi(tt,DIM*k+2),txt,...
+                    'HorizontalAlignment',...
                     'right','interpreter','latex','fontsize',ftsz)
             end
         end
@@ -155,14 +172,16 @@ for ii = 1:kTgif-1
         hold on
 
         for k = 0:nAg-1
-            plot3(Xi(:,DIM*k+1),Xi(:,DIM*k+2),Xi(:,DIM*k+3), 'color', color_traj, 'linewidth', 2)
+            plot3(Xi(:,DIM*k+1),Xi(:,DIM*k+2),Xi(:,DIM*k+3), 'color',...
+                color_traj, 'linewidth', 2)
             for kt = 1:kT
                 if kt == 1
-                    tt = 1; %1+floor(ii/kTgif*Ltraj);
+                    tt = 1; 
                 else
                     tt = round((kt-1)/(kT-1)*Ltraj);
                 end
-                plot3(Xi(tt,DIM*k+1),Xi(tt,DIM*k+2),Xi(tt,DIM*k+3), '*', 'color',...
+                plot3(Xi(tt,DIM*k+1),Xi(tt,DIM*k+2),Xi(tt,DIM*k+3), '*',...
+                    'color',...
                     [1 0 0]/(kT-kt+1)+([0 0 255]/255)*(1-1/(kT-kt+1)),...
                     'linewidth', 3)
                 txt = '';
@@ -170,12 +189,12 @@ for ii = 1:kTgif-1
                     txt = strcat('$',num2str(k+1),'$');
                 end
                 text(Xi(tt,DIM*k+1),Xi(tt,DIM*k+2),Xi(tt,DIM*k+3),txt,...
-                    'HorizontalAlignment', 'right','interpreter','latex',...
-                    'fontsize',ftsz)
+                    'HorizontalAlignment', 'right','interpreter',...
+                    'latex','fontsize',ftsz)
             end
         end
 
-        plot3(XB(:,1),XB(:,2),XB(:,3), 'color', color_bary, 'linewidth', 1);
+        plot3(XB(:,1),XB(:,2),XB(:,3),'color',color_bary,'linewidth',1);
     end
 
     % showing polygons or polyhedra
@@ -184,16 +203,18 @@ for ii = 1:kTgif-1
     lambda = linspace(0,1);
     for kt = 1:kT
         if kt == 1
-            tt = 1+floor(ii/kTgif*Ltraj); %tt = 1; % <------------------------------
+            tt = 1+floor(ii/kTgif*Ltraj); 
         else
             tt = round((kt-1)/(kT-1)*Ltraj);
         end
         if DIM == 2
             plot(XB(tt,1),XB(tt,2),'+','color',...
-                color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)), 'linewidth', 1.5);
+                color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)),...
+                'linewidth', 1.5);
         elseif DIM == 3
             plot3(XB(tt,1),XB(tt,2),XB(tt,3),'+','color',...
-                color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)), 'linewidth', 1.5);
+                color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)),...
+                'linewidth', 1.5);
         end
         for i = 0:nAg-1
             for j = 0:i-1
@@ -206,7 +227,8 @@ for ii = 1:kTgif-1
                     plot(segment(1,:), segment(2,:), 'color',...
                         color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)))
                 elseif DIM == 3 && A(i+1,j+1) == 1
-                    plot3(segment(1,:), segment(2,:), segment(3,:), 'color',...
+                    plot3(segment(1,:), segment(2,:), segment(3,:),...
+                        'color',...
                         color_ini/(kT-kt+1)+color_fin*(1-1/(kT-kt+1)))
                 end
             end
@@ -246,26 +268,60 @@ for ii = 1:kTgif-1
             'latex', 'FontSize', ftsz, 'linewidth', lw);
     end
     set(gca,'TickLabelInterpreter','latex')
-
+    % cleanfigure;
+    % matlab2tikz('./traj_sym_maf.tex')
 end
 
 
 ax = gca;
 ax.FontSize = 20;
 
-hold off
+
+cdf_fig = figure();
+max_err = 10000;
+ylim([0, 1]);
+xlim([0, max_err]);
+x = -0.5 : max_err + 0.5;
+hold on
+for algo_tx = 1 : 4
+    loss = squeeze(grp.loss(algo_tx, :, 101:end));
+    hist_loss = histcounts(loss, x);
+    cdf = cumsum(hist_loss) / sum(hist_loss);
+    plot(x(2 : 20: end) - 0.5, cdf(1:20:end));
+end
+legend('MAF', 'MEE', 'MV', 'Oracle')
+
 grid on, zoom on
 %title('Trajectory tracking + formation achieved')
-axis equal
 set(gca,'fontsize', ftsz)
-xlabel('$x$ [m]','Interpreter',...
+xlabel('Formation error','Interpreter',...
     'latex', 'FontSize', ftsz, 'linewidth', lw);
-ylabel('$y$ [m]','Interpreter',...
+ylabel('log(CCDF)','Interpreter',...
     'latex', 'FontSize', ftsz, 'linewidth', lw);
-if DIM == 3
-    zlabel('$z$ [m]','Interpreter',...
-        'latex', 'FontSize', ftsz, 'linewidth', lw);
+set(gca,'TickLabelInterpreter','latex')
+
+ax = gca;
+ax.FontSize = 20;
+
+% matlab2tikz('./ccdf_plot_sym.tex')
+
+loss_fig = figure();
+max_err = 10000;
+ylim([0, max_err]);
+hold on
+for algo_tx = 1 : 3
+    loss = squeeze(grp.loss(algo_tx, 1, :));
+    plot(grp.T0, loss);
 end
+legend('MAF', 'MEE', 'MV')
+
+grid on, zoom on
+%title('Trajectory tracking + formation achieved')
+set(gca,'fontsize', ftsz)
+ylabel('Formation error','Interpreter',...
+    'latex', 'FontSize', ftsz, 'linewidth', lw);
+xlabel('Time [s]','Interpreter',...
+    'latex', 'FontSize', ftsz, 'linewidth', lw);
 set(gca,'TickLabelInterpreter','latex')
 
 
